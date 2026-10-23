@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="狛電勤怠">
+<title>狛電工業 勤怠</title>
+<style>
+:root{--g:#1b8a3a;--o:#d9541e;--b:#1f5fbf;--bg:#f4f5f7;--card:#fff;--tx:#1a1a1a;--sub:#666;--line:#ddd}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:20px;line-height:1.5}
+.wrap{max-width:560px;margin:0 auto;padding:16px 16px 60px}
+h1{font-size:20px;margin:4px 0 12px;color:var(--sub)}
+h2{font-size:24px;margin:0 0 12px}
+.card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.lbl{font-size:18px;font-weight:bold;color:var(--sub);margin:12px 0 6px}
+.lbl:first-child{margin-top:0}
+select,input,textarea{width:100%;font-size:24px;padding:12px;border:2px solid #bbb;border-radius:10px;background:#fff;color:var(--tx);font-family:inherit}
+button{width:100%;font-size:24px;font-weight:bold;min-height:64px;border:0;border-radius:12px;color:#fff;background:var(--b);margin-top:10px;font-family:inherit}
+button:disabled{opacity:.5}
+.in{background:var(--g);min-height:96px;font-size:34px}
+.out{background:var(--o);min-height:96px;font-size:34px}
+.sub{background:#fff;color:var(--b);border:3px solid var(--b)}
+.gray{background:#777}
+.link{background:none;color:var(--sub);font-size:18px;min-height:40px;text-decoration:underline;font-weight:normal}
+.plan-time{font-size:48px;font-weight:bold;line-height:1.2}
+.plan-place{font-size:28px;font-weight:bold;margin-bottom:6px}
+.plan-today{border-left:10px solid var(--b)}
+.plan-tom{border-left:10px solid var(--g)}
+.none{color:var(--sub);font-size:20px}
+.small{color:var(--sub);font-size:16px;margin-top:6px}
+.msg{font-size:24px;font-weight:bold;text-align:center;padding:14px;border-radius:12px;margin-top:12px}
+.msg.ok{background:#e3f4e8;color:#145c28}
+.msg.err{background:#fde7e2;color:#9a2a0b}
+.row2{display:flex;gap:10px}
+.row2 button{margin-top:0}
+.chk{display:flex;align-items:center;gap:12px;font-size:24px;padding:12px;border:2px solid #ccc;border-radius:10px;margin-bottom:8px;background:#fff}
+.chk input{width:30px;height:30px;flex:none}
+.chk.on{border-color:var(--g);background:#eef8f0;font-weight:bold}
+table{width:100%;border-collapse:collapse;font-size:18px}
+th,td{border-bottom:1px solid var(--line);padding:8px 4px;text-align:left;vertical-align:top}
+th{color:var(--sub);font-size:16px}
+.red{color:#c0280c;font-weight:bold}
+details summary{font-size:22px;font-weight:bold;padding:6px 0}
+#loading{position:fixed;inset:0;background:rgba(255,255,255,.75);display:none;align-items:center;justify-content:center;font-size:30px;font-weight:bold;z-index:9}
+.hide{display:none}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tabs button{margin-top:0;min-height:56px;font-size:18px;padding:0 4px}
+.paid{color:var(--b);font-weight:bold}
+.tabs button.off{background:#fff;color:var(--b);border:3px solid var(--b)}
+</style>
+</head>
+<body>
+<div id="loading">通信中…</div>
+<div class="wrap">
+<h1>狛電工業 勤怠</h1>
+
+<div id="s-pass" class="hide">
+  <div class="card">
+    <h2>合言葉を入れてください</h2>
+    <input id="pass" type="password" autocomplete="off">
+    <button onclick="doPass()">はじめる</button>
+    <div id="pass-msg"></div>
+  </div>
+</div>
+
+<div id="s-main" class="hide">
+  <div class="card">
+    <div class="lbl">あなたの名前</div>
+    <select id="name" onchange="onName()"></select>
+  </div>
+  <div id="plans"></div>
+  <div class="card">
+    <div id="today-rec"></div>
+    <div class="lbl">現場名（空欄でもOK）</div>
+    <input id="site" type="text">
+    <button class="in" onclick="punch('出勤')">出　勤</button>
+    <button class="out" onclick="punch('退勤')">退　勤</button>
+    <div id="main-msg"></div>
+  </div>
+  <button class="sub" onclick="openPlan(false)">明日の集合を入れる</button>
+  <button class="sub" onclick="openLeave()">有給を申請する</button>
+  <div id="leaves" style="margin-top:14px"></div>
+  <button class="link" onclick="openBoss()">社長用</button>
+</div>
+
+<div id="s-leave" class="hide">
+  <div class="card">
+    <h2>有給を申請する</h2>
+    <div id="l-name" style="font-size:24px;font-weight:bold"></div>
+    <div class="lbl">休みたい日</div>
+    <input id="l-date" type="date">
+    <div class="lbl">ひとこと（空欄でもOK）</div>
+    <textarea id="l-memo" rows="2"></textarea>
+    <div class="small">申請したあと、社長が確認すると「承認」になります。</div>
+    <button onclick="saveLeave()">申請する</button>
+    <button class="gray" onclick="show('main')">もどる</button>
+    <div id="leave-msg"></div>
+  </div>
+</div>
+
+<div id="s-plan" class="hide">
+  <div class="card">
+    <h2>集合を入れる</h2>
+    <div class="lbl">日付</div>
+    <div class="row2">
+      <button id="d-0" onclick="setDay(0)">今日</button>
+      <button id="d-1" onclick="setDay(1)">明日</button>
+    </div>
+    <input id="p-date" type="date" style="margin-top:10px" onchange="markDay()">
+    <div class="lbl">集合時間</div>
+    <input id="p-time" type="time">
+    <div class="lbl">集合場所</div>
+    <input id="p-place" type="text">
+    <button class="sub" onclick="q('p-place').value='駐車場'">「駐車場」にする</button>
+    <div class="lbl">一緒に行く人（タップで選ぶ）</div>
+    <div id="p-mem"></div>
+    <div class="lbl">ひとこと（空欄でもOK）</div>
+    <textarea id="p-memo" rows="2"></textarea>
+    <button class="in" onclick="savePlan()">登録する</button>
+    <button class="gray" onclick="backFromPlan()">もどる</button>
+    <div id="plan-msg"></div>
+  </div>
+</div>
+
+<div id="s-bosslogin" class="hide">
+  <div class="card">
+    <h2>社長用パスワード</h2>
+    <input id="bpass" type="password" autocomplete="off">
+    <button onclick="doBoss()">開く</button>
+    <button class="gray" onclick="show('main')">もどる</button>
+    <div id="bl-msg"></div>
+  </div>
+</div>
+
+<div id="s-boss" class="hide">
+  <div class="tabs">
+    <button id="t-month" onclick="bossTab('month')">月の集計</button>
+    <button id="t-plans" onclick="bossTab('plans')">集合の予定</button>
+    <button id="t-leaves" onclick="bossTab('leaves')">有給の確認</button>
+  </div>
+  <div id="b-leaves" class="hide">
+    <div id="leaves-out"></div>
+  </div>
+  <div id="b-month">
+    <div class="card">
+      <div class="lbl">月を選ぶ</div>
+      <select id="ym" onchange="loadMonth()"></select>
+    </div>
+    <div id="month-out"></div>
+  </div>
+  <div id="b-plans" class="hide">
+    <div class="small">直したいときは、古い予定を消してから「新しく入れる」で入れなおしてください。</div>
+    <button onclick="openPlan(true)">新しく入れる</button>
+    <div id="plans-out" style="margin-top:14px"></div>
+  </div>
+  <button class="gray" onclick="show('main')">打刻画面にもどる</button>
+</div>
+
+</div>
+<script>
+var API = 'https://script.google.com/macros/s/AKfycbyyYXWxBDRA3IOKh70_4osZ7xfU5dTYsc1jSIZA9LyyoAecIo0WI_eXaZxhCZM6K99Seg/exec';
+var S = { pass: '', name: '', boss: '', home: null, fromBoss: false, screen: '' };
+
+function q(id) { return document.getElementById(id); }
+function ls(k, v) {
+  try {
+    if (v === undefined) return localStorage.getItem(k) || '';
+    if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v);
+  } catch (e) {}
+  return '';
+}
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function br(s) { return esc(s).replace(/\n/g, '<br>'); }
+function msg(id, text, kind) { q(id).innerHTML = text ? '<div class="msg ' + kind + '">' + esc(text) + '</div>' : ''; }
+function hm(min) { return Math.floor(min / 60) + '時間' + (min % 60) + '分'; }
+function show(name) {
+  ['pass', 'main', 'plan', 'leave', 'bosslogin', 'boss'].forEach(function (n) {
+    q('s-' + n).className = (n === name) ? '' : 'hide';
+  });
+  S.screen = name;
+  window.scrollTo(0, 0);
+}
+
+function call(action, data, ok) {
+  data = data || {};
+  data.action = action; data.pass = S.pass; data.boss = S.boss;
+  q('loading').style.display = 'flex';
+  fetch(API, { method: 'POST', body: JSON.stringify(data) }).then(function (res) { return res.json(); }).then(function (r) {
+    q('loading').style.display = 'none';
+    if (r && r.ng === 'pass') {
+      S.pass = ''; ls('kd_pass', null); show('pass');
+      msg('pass-msg', '合言葉が変わりました。入れなおしてください', 'err');
+      return;
+    }
+    if (r && r.ng === 'boss') {
+      S.boss = ''; show('bosslogin');
+      msg('bl-msg', 'パスワードを入れなおしてください', 'err');
+      return;
+    }
+    if (r && r.err) { alert('うまくいきませんでした：' + r.err); return; }
+    ok(r);
+  }).catch(function () {
+    q('loading').style.display = 'none';
+    alert('通信できませんでした。電波のよい所でもう一度押してください。');
+  });
+}
+
+// ----- 合言葉 -----
+function doPass() {
+  var p = q('pass').value.trim();
+  if (!p) return;
+  S.pass = p;
+  call('check', {}, function (r) {
+    if (r.ok) { ls('kd_pass', p); q('pass').value = ''; loadHome(); return; }
+    S.pass = '';
+    msg('pass-msg', r.setup ? 'まだ合言葉が決まっていません。社長がスプレッドシートの「設定」に書いてください' : '合言葉がちがいます', 'err');
+  });
+}
+
+// ----- 打刻画面 -----
+function loadHome(after) {
+  call('home', { name: S.name }, function (r) {
+    S.home = r; renderHome(); show('main');
+    if (after) after();
+  });
+}
+
+function renderHome() {
+  var r = S.home;
+  if (S.name && r.names.indexOf(S.name) < 0) { S.name = ''; ls('kd_name', null); }
+  var h = '<option value="">▼ 名前を選んでください</option>';
+  r.names.forEach(function (n) {
+    h += '<option value="' + esc(n) + '"' + (n === S.name ? ' selected' : '') + '>' + esc(n) + '</option>';
+  });
+  q('name').innerHTML = h;
+  q('plans').innerHTML =
+    planCard('今日の集合', r.todayLabel, r.plan.today, 'plan-today') +
+    planCard('明日の集合', r.tomorrowLabel, r.plan.tomorrow, 'plan-tom');
+  var ins = [], outs = [];
+  (r.punches || []).forEach(function (x) {
+    (x.type === '退勤' ? outs : ins).push(x.time + (x.site ? '（' + x.site + '）' : ''));
+  });
+  q('today-rec').innerHTML = S.name
+    ? '<div class="lbl">今日の記録</div><div>出勤：' + esc(ins.join('、') || 'まだ') + '<br>退勤：' + esc(outs.join('、') || 'まだ') + '</div>'
+    : '';
+  var lv = '';
+  if (S.name && r.leaves && r.leaves.length) {
+    lv = '<div class="card"><div class="lbl">有給の申請</div>';
+    r.leaves.forEach(function (l) {
+      lv += '<div>' + esc(l.label) + '　<span class="' + (l.state === '却下' ? 'red' : 'paid') + '">' + esc(l.state) + '</span></div>';
+    });
+    lv += '</div>';
+  }
+  q('leaves').innerHTML = lv;
+}
+
+// ----- 有給の申請 -----
+function openLeave() {
+  if (!S.name) { msg('main-msg', '先に名前を選んでください', 'err'); return; }
+  q('l-name').textContent = S.name;
+  q('l-date').value = S.home.tomorrow;
+  q('l-memo').value = '';
+  msg('leave-msg', '');
+  show('leave');
+}
+function saveLeave() {
+  var d = q('l-date').value;
+  if (!d) { msg('leave-msg', '休みたい日を選んでください', 'err'); return; }
+  var p = d.split('-');
+  if (!confirm(S.name + 'さん\n' + (+p[1]) + '月' + (+p[2]) + '日を有給で申請しますか？')) return;
+  call('applyLeave', { name: S.name, date: d, memo: q('l-memo').value }, function (r) {
+    loadHome(function () { msg('main-msg', r.label + 'の有給を申請しました（社長の確認待ち）', 'ok'); });
+  });
+}
+
+function planCard(title, label, p, cls) {
+  var h = '<div class="card ' + cls + '"><div class="lbl">' + title + '　' + esc(label) + '</div>';
+  if (!S.name) h += '<div class="none">名前を選ぶと表示されます</div>';
+  else if (!p) h += '<div class="none">予定はありません</div>';
+  else {
+    var others = p.members.filter(function (m) { return m !== S.name; });
+    h += '<div class="plan-time">' + esc(p.time) + '</div>';
+    h += '<div class="plan-place">' + esc(p.place || '（場所の記入なし）') + '</div>';
+    h += '<div>一緒に行く人：' + esc(others.join('、') || 'なし') + '</div>';
+    if (p.memo) h += '<div>ひとこと：' + br(p.memo) + '</div>';
+    h += '<div class="small">入れた人：' + esc(p.by) + '</div>';
+  }
+  return h + '</div>';
+}
+
+function onName() {
+  S.name = q('name').value;
+  ls('kd_name', S.name || null);
+  msg('main-msg', '');
+  loadHome();
+}
+
+function punch(type) {
+  if (!S.name) { msg('main-msg', '先に名前を選んでください', 'err'); return; }
+  var ins = 0, outs = 0;
+  (S.home.punches || []).forEach(function (x) { if (x.type === '退勤') outs++; else ins++; });
+  if (type === '出勤' && ins > 0 && !confirm('今日はもう出勤を押しています。もう一度記録しますか？')) return;
+  if (type === '退勤' && ins === 0 && !confirm('今日の出勤が記録されていません。退勤を記録しますか？')) return;
+  if (type === '退勤' && outs > 0 && !confirm('今日はもう退勤を押しています。もう一度記録しますか？')) return;
+  call('punch', { name: S.name, type: type, site: q('site').value }, function (r) {
+    S.home = r; renderHome();
+    msg('main-msg', r.done.time + ' に' + r.done.type + 'を記録しました', 'ok');
+  });
+}
+
+// ----- 集合を入れる -----
+function openPlan(fromBoss) {
+  if (!fromBoss && !S.name) { msg('main-msg', '先に名前を選んでください', 'err'); return; }
+  S.fromBoss = fromBoss;
+  q('p-time').value = ''; q('p-place').value = ''; q('p-memo').value = '';
+  msg('plan-msg', '');
+  setDay(1);
+  var h = '';
+  S.home.names.forEach(function (n) {
+    var on = !fromBoss && n === S.name;
+    h += '<label class="chk' + (on ? ' on' : '') + '"><input type="checkbox" value="' + esc(n) + '"' +
+      (on ? ' checked' : '') + ' onchange="chk(this)">' + esc(n) + '</label>';
+  });
+  q('p-mem').innerHTML = h;
+  show('plan');
+}
+function chk(el) { el.parentNode.className = el.checked ? 'chk on' : 'chk'; }
+function setDay(n) { q('p-date').value = n ? S.home.tomorrow : S.home.today; markDay(); }
+function markDay() {
+  var v = q('p-date').value;
+  q('d-0').className = v === S.home.today ? '' : 'sub';
+  q('d-1').className = v === S.home.tomorrow ? '' : 'sub';
+}
+function backFromPlan() { if (S.fromBoss) show('boss'); else show('main'); }
+
+function savePlan() {
+  var mem = [].slice.call(document.querySelectorAll('#p-mem input:checked')).map(function (x) { return x.value; });
+  var d = { date: q('p-date').value, time: q('p-time').value, place: q('p-place').value,
+    memo: q('p-memo').value, members: mem, by: S.fromBoss ? '社長' : S.name };
+  if (!d.date) { msg('plan-msg', '日付を選んでください', 'err'); return; }
+  if (!d.time) { msg('plan-msg', '集合時間を入れてください', 'err'); return; }
+  if (!mem.length) { msg('plan-msg', '一緒に行く人を選んでください', 'err'); return; }
+  call('addPlan', d, function () {
+    if (S.fromBoss) { show('boss'); bossTab('plans'); }
+    else loadHome(function () { msg('main-msg', '集合を登録しました', 'ok'); });
+  });
+}
+
+// ----- 社長用 -----
+function openBoss() {
+  if (S.boss) { show('boss'); bossTab('month'); return; }
+  q('bpass').value = ''; msg('bl-msg', '');
+  show('bosslogin');
+}
+function doBoss() {
+  var p = q('bpass').value.trim();
+  if (!p) return;
+  S.boss = p;
+  call('bossCheck', {}, function (r) {
+    if (r.ok) { fillYm(); show('boss'); bossTab('month'); return; }
+    S.boss = '';
+    msg('bl-msg', r.setup ? 'まだ社長パスワードが決まっていません。スプレッドシートの「設定」に書いてください' : 'パスワードがちがいます', 'err');
+  });
+}
+function fillYm() {
+  var t = S.home.today.split('-'), y = +t[0], m = +t[1], h = '';
+  for (var i = 0; i < 12; i++) {
+    h += '<option value="' + y + '-' + (m < 10 ? '0' : '') + m + '">' + y + '年' + m + '月</option>';
+    m--; if (m === 0) { m = 12; y--; }
+  }
+  q('ym').innerHTML = h;
+}
+function bossTab(t) {
+  q('b-month').className = t === 'month' ? '' : 'hide';
+  q('b-plans').className = t === 'plans' ? '' : 'hide';
+  q('t-month').className = t === 'month' ? '' : 'off';
+  q('t-plans').className = t === 'plans' ? '' : 'off';
+  q('b-leaves').className = t === 'leaves' ? '' : 'hide';
+  q('t-leaves').className = t === 'leaves' ? '' : 'off';
+  if (t === 'month') loadMonth(); else if (t === 'plans') loadPlans(); else loadLeaves();
+}
+
+function loadLeaves() { call('leaves', {}, renderLeaves); }
+function renderLeaves(r) {
+  var h = '<h2>確認待ち</h2>';
+  if (!r.pending.length) h += '<div class="card none">確認待ちの申請はありません</div>';
+  r.pending.forEach(function (l) {
+    h += '<div class="card"><div class="plan-place">' + esc(l.name) + '</div>' +
+      '<div style="font-size:26px">' + esc(l.label) + '</div>' +
+      (l.memo ? '<div>ひとこと：' + br(l.memo) + '</div>' : '') +
+      '<div class="small">申請：' + esc(l.at) + '</div>' +
+      '<div class="row2" style="margin-top:10px">' +
+      '<button class="in" style="min-height:64px;font-size:24px" data-id="' + esc(l.id) + '" data-n="' + esc(l.name + ' ' + l.label) + '" onclick="decide(this, true)">承認</button>' +
+      '<button class="gray" data-id="' + esc(l.id) + '" data-n="' + esc(l.name + ' ' + l.label) + '" onclick="decide(this, false)">却下</button>' +
+      '</div></div>';
+  });
+  if (r.done.length) {
+    h += '<h2 style="margin-top:20px">最近の結果</h2><div class="card"><table>';
+    r.done.forEach(function (l) {
+      h += '<tr><td>' + esc(l.label) + '</td><td>' + esc(l.name) + '</td><td class="' + (l.state === '却下' ? 'red' : 'paid') + '">' + esc(l.state) + '</td></tr>';
+    });
+    h += '</table></div>';
+  }
+  q('leaves-out').innerHTML = h;
+}
+function decide(el, ok) {
+  if (!confirm(el.dataset.n + '\nの有給を「' + (ok ? '承認' : '却下') + '」しますか？')) return;
+  call('decideLeave', { id: el.dataset.id, ok: ok }, renderLeaves);
+}
+
+function loadMonth() {
+  call('month', { ym: q('ym').value }, function (r) {
+    var h = '<div class="card"><table><tr><th>名前</th><th>出勤日数</th><th>有給</th><th>合計時間</th></tr>';
+    r.people.forEach(function (p) {
+      h += '<tr><td>' + esc(p.name) + '</td><td>' + p.days + '日</td><td>' + (p.paid ? '<span class="paid">' + p.paid + '日</span>' : '0日') + '</td><td>' + hm(p.total) +
+        (p.miss ? '<br><span class="red">未退勤 ' + p.miss + '日</span>' : '') + '</td></tr>';
+    });
+    h += '</table><div class="small">※合計時間は出勤から退勤までの時間です。6時間をこえた日は、休憩1時間を引いています。未退勤の日は合計に入りません。有給は、社長が承認した日だけ数えます。</div></div>';
+    r.people.forEach(function (p) {
+      if (!p.list.length) return;
+      h += '<div class="card"><details><summary>' + esc(p.name) + '（日ごと）</summary>' +
+        '<table><tr><th>日付・現場</th><th>出勤</th><th>退勤</th><th>時間</th></tr>';
+      p.list.forEach(function (d) {
+        if (d.paid) {
+          h += '<tr><td>' + esc(d.label) + '</td><td colspan="3" class="paid">有給</td></tr>';
+          return;
+        }
+        h += '<tr><td>' + esc(d.label) + (d.site ? '<br><span class="small">' + esc(d.site) + '</span>' : '') + '</td>' +
+          '<td>' + (d.tin ? esc(d.tin) : '<span class="red">' + esc(d.st) + '</span>') + '</td>' +
+          '<td>' + (d.tout ? esc(d.tout) : (d.tin ? '<span class="red">' + esc(d.st) + '</span>' : '')) + '</td>' +
+          '<td>' + (d.tin && d.tout ? hm(d.min) : '') + '</td></tr>';
+      });
+      h += '</table></details></div>';
+    });
+    q('month-out').innerHTML = h;
+  });
+}
+
+function loadPlans() {
+  call('plans', {}, function (r) {
+    if (!r.plans.length) { q('plans-out').innerHTML = '<div class="card none">これからの予定はありません</div>'; return; }
+    var h = '', last = '';
+    r.plans.forEach(function (p) {
+      if (p.label !== last) { h += '<h2>' + esc(p.label) + '</h2>'; last = p.label; }
+      h += '<div class="card"><div class="plan-time">' + esc(p.time) + '</div>' +
+        '<div class="plan-place">' + esc(p.place || '（場所の記入なし）') + '</div>' +
+        '<div>メンバー：' + esc(p.members.join('、')) + '</div>' +
+        (p.memo ? '<div>ひとこと：' + br(p.memo) + '</div>' : '') +
+        '<div class="small">入れた人：' + esc(p.by) + '（' + esc(p.at) + '）</div>' +
+        '<button class="gray" data-id="' + esc(p.id) + '" onclick="delPlan(this.dataset.id)">この予定を消す</button></div>';
+    });
+    q('plans-out').innerHTML = h;
+  });
+}
+function delPlan(id) {
+  if (!confirm('この予定を消しますか？')) return;
+  call('delPlan', { id: id }, function () { loadPlans(); });
+}
+
+// ----- はじめに -----
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible' && S.screen === 'main') loadHome();
+});
+window.onload = function () {
+  S.pass = ls('kd_pass');
+  S.name = ls('kd_name');
+  if (!S.pass) { show('pass'); return; }
+  loadHome();
+};
+</script>
+</body>
+</html>
